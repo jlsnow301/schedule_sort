@@ -1,39 +1,52 @@
-use crate::deserialize::{Order, deserialize_excel};
-use crate::write::write_new_xlsx;
-use anyhow::{Context, Result};
+use std::env;
 
+use crate::check::test_order_input;
+use crate::deserialize::{deserialize_excel, Order};
+use crate::errors::{exit_gracefully, throw_windows_err};
+use crate::path::get_file_path;
+use crate::write::write_new_xlsx;
+use anyhow::anyhow;
+
+mod check;
 mod deserialize;
+mod errors;
+mod path;
 mod write;
 
-fn main() -> Result<()> {
-    let path = "./tests/current.xlsx";
-
-    let mut orders: Vec<Order> = deserialize_excel(path).context("Could not deserialize excel")?;
-
-    // No orders
-    if orders.is_empty() {
-        return Err(anyhow::anyhow!("No orders found in the Excel file"));
+fn main() {
+    if env::args().len() != 2 {
+        throw_windows_err(anyhow!(
+            "This program requires an excel sheet to be dragged onto it."
+        ));
+        return;
     }
 
-    // Missing first date
-    let mut current_date = orders[0].date;
-    if current_date == 45658.0 {
-        return Err(anyhow::anyhow!("First order date is not valid"));
-    }
+    let args: Vec<String> = env::args().collect();
 
-    // Missing valid dates
-    let mut days_total = 0;
-    for order in orders.iter() {
-        if order.date != current_date {
-            days_total += 1;
-            current_date = order.date;
+    let dragged_file = &args[1];
+
+    let file_path = match get_file_path(dragged_file) {
+        Err(e) => {
+            throw_windows_err(e);
+            return;
         }
-    }
-    if days_total == 0 {
-        return Err(anyhow::anyhow!("No valid dates found in the orders"));
-    }
+        Ok(result) => result,
+    };
+
+    let mut orders: Vec<Order> = match deserialize_excel(file_path.as_str()) {
+        Err(e) => {
+            throw_windows_err(e);
+            return;
+        }
+        Ok(result) => result,
+    };
 
     let total = orders.len();
+
+    match test_order_input(&orders) {
+        Err(e) => throw_windows_err(e),
+        Ok(result) => result,
+    };
 
     orders.sort_by(|a, b| {
         a.date
@@ -42,8 +55,8 @@ fn main() -> Result<()> {
             .then_with(|| a.employee.cmp(&b.employee))
     });
 
-    write_new_xlsx(orders).context("Could not write new excel sheet")?;
-
-    println!("Excel file written with {} orders", total);
-    Ok(())
+    match write_new_xlsx(orders) {
+        Err(e) => throw_windows_err(e),
+        Ok(_) => exit_gracefully(format!("Wrote schedule with {} orders", total)),
+    }
 }

@@ -1,7 +1,7 @@
 use crate::deserialize::Order;
 use anyhow::Result;
 use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Weekday};
-use rust_xlsxwriter::{Color, Format, workbook::Workbook, worksheet::Worksheet};
+use rust_xlsxwriter::{workbook::Workbook, worksheet::Worksheet, Color, Format};
 
 fn write_date_row(worksheet: &mut Worksheet, index: u32, current_date: f64) -> Result<()> {
     let start = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
@@ -137,6 +137,6 @@ pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
         }
     }
 
-    workbook.save("./tests/saved.xlsx")?;
+    workbook.save("./formatted.xlsx")?;
     Ok(())
 }
