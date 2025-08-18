@@ -1,7 +1,7 @@
 use std::env;
 
 use crate::check::test_order_input;
-use crate::deserialize::{deserialize_excel, Order};
+use crate::deserialize::{Order, deserialize_excel};
 use crate::errors::{exit_gracefully, throw_windows_err};
 use crate::path::get_file_path;
 use crate::write::write_new_xlsx;
@@ -53,6 +53,7 @@ fn main() {
             .partial_cmp(&b.date)
             .unwrap()
             .then_with(|| a.employee.cmp(&b.employee))
+            .then_with(|| a.ready.partial_cmp(&b.ready).unwrap())
     });
 
     match write_new_xlsx(orders) {

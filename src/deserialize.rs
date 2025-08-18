@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use calamine::{Data, DataType, ExcelDateTime, Reader, Xlsx, open_workbook};
+use calamine::{open_workbook, Data, DataType, ExcelDateTime, Reader, Xlsx};
 
 #[derive(Debug)]
 pub struct Order {
@@ -8,7 +8,7 @@ pub struct Order {
     pub employee: String,
     pub client: String,
     pub description: String,
-    pub count: String,
+    pub count: i64,
     pub ready: f64,
     pub leave: f64,
     pub start: f64,
@@ -62,7 +62,14 @@ pub fn deserialize_excel(file_path: &str) -> Result<Vec<Order>> {
                     employee: deserialize_string_cell(row.get(2), ""),
                     client: deserialize_string_cell(row.get(3), ""),
                     description: deserialize_string_cell(row.get(4), ""),
-                    count: deserialize_string_cell(row.get(5), ""),
+                    count: row
+                        .get(5)
+                        .map(|x| match x {
+                            Data::String(x) => x.parse::<i64>().unwrap_or(0),
+                            Data::Int(x) => *x,
+                            _ => 0,
+                        })
+                        .unwrap(),
                     ready: deserialize_date_cell(row.get(6), 0.0),
                     leave: deserialize_date_cell(row.get(7), 0.0),
                     start: deserialize_date_cell(row.get(8), 0.0),
