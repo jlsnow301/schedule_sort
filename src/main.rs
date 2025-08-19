@@ -1,7 +1,7 @@
 use std::env;
 
 use crate::check::test_order_input;
-use crate::deserialize::{Order, deserialize_excel};
+use crate::deserialize::{deserialize_excel, Order};
 use crate::errors::{exit_gracefully, throw_windows_err};
 use crate::path::get_file_path;
 use crate::write::write_new_xlsx;
@@ -18,35 +18,19 @@ fn main() {
         throw_windows_err(anyhow!(
             "This program requires an excel sheet to be dragged onto it."
         ));
-        return;
     }
 
     let args: Vec<String> = env::args().collect();
 
     let dragged_file = &args[1];
 
-    let file_path = match get_file_path(dragged_file) {
-        Err(e) => {
-            throw_windows_err(e);
-            return;
-        }
-        Ok(result) => result,
-    };
+    let file_path = unwrap_or_throw!(get_file_path(dragged_file));
 
-    let mut orders: Vec<Order> = match deserialize_excel(file_path.as_str()) {
-        Err(e) => {
-            throw_windows_err(e);
-            return;
-        }
-        Ok(result) => result,
-    };
+    let mut orders: Vec<Order> = unwrap_or_throw!(deserialize_excel(file_path.as_str()));
 
     let total = orders.len();
 
-    match test_order_input(&orders) {
-        Err(e) => throw_windows_err(e),
-        Ok(result) => result,
-    };
+    unwrap_or_throw!(test_order_input(&orders));
 
     orders.sort_by(|a, b| {
         a.date
