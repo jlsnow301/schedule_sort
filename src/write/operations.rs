@@ -5,12 +5,16 @@ use crate::{
     },
 };
 use anyhow::Result;
-use rust_xlsxwriter::{Color, Format, workbook::Workbook};
+use rust_xlsxwriter::{workbook::Workbook, Color, Format, FormatAlign, FormatBorder};
+
+const LT_GRAY: u32 = 0xE5E7EB;
+const RUST: u32 = 0xBE5014; // crab
 
 pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
 
+    // Default sizing
     worksheet.set_column_width(0, 12)?;
     worksheet.set_column_width(1, 45)?;
     worksheet.set_column_width(2, 45)?;
@@ -22,63 +26,63 @@ pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
     worksheet.set_column_width(8, 24)?;
 
     let mut current_date = orders[0].date;
-    let mut index = 0;
+    let mut row = 0;
     let mut daily_orders = 0;
     let mut sum_rows: Vec<u32> = Vec::new();
 
-    let bold = Format::new().set_bold();
-    let eastlake = Format::new().set_font_color(Color::RGB(0xBE5014));
-    let empty = Format::new();
-    let fremont = Format::new().set_font_color(Color::Green);
-    let right_align = Format::new().set_align(rust_xlsxwriter::FormatAlign::Right);
+    // Create themes
+    let standard = Format::new()
+        .set_border(FormatBorder::Thin)
+        .set_border_color(Color::Gray);
+
+    let bold = standard.clone().set_bold();
+    let eastlake = standard.clone().set_font_color(Color::RGB(RUST));
+    let last_sum = Format::new()
+        .set_bold()
+        .set_background_color(Color::RGB(LT_GRAY));
+    let fremont = standard.clone().set_font_color(Color::Green);
+    let header = standard.clone().set_background_color(Color::RGB(LT_GRAY));
+    let right_align = standard.clone().set_align(FormatAlign::Right);
+
+    write_date_row(worksheet, row, current_date)?;
+    row += 1;
+    write_header_row(worksheet, row, &header)?;
+    row += 1;
 
     for order in orders.iter() {
-        match index {
-            0 => {
-                write_header_row(worksheet)?;
-                index += 1;
+        // Writes daily counts followed by a new date
+        if current_date != order.date {
+            current_date = order.date;
+            write_daily_count_sum(worksheet, row, &mut daily_orders, &mut sum_rows, &bold)?;
+            // We want a blank row after the counts
+            write_date_row(worksheet, row + 2, order.date)?;
+            write_header_row(worksheet, row + 3, &header)?;
+            row += 4;
+        };
 
-                write_date_row(worksheet, index, current_date)?;
-                index += 1;
-            }
-            _ => {
-                if current_date != order.date {
-                    current_date = order.date;
-                    write_daily_count_sum(
-                        worksheet,
-                        index,
-                        &mut daily_orders,
-                        &mut sum_rows,
-                        &bold,
-                    )?;
-                    write_date_row(worksheet, index + 2, order.date)?;
-                    index += 3;
-                }
+        let to_use = match order.origin.as_str() {
+            "Fremont" => &fremont,
+            "Eastlake" => &eastlake,
+            _ => &bold,
+        };
 
-                let to_use = match order.origin.as_str() {
-                    "Fremont" => &fremont,
-                    "Eastlake" => &eastlake,
-                    _ => &empty,
-                };
+        worksheet.set_row_format(row, &standard)?;
+        worksheet.write_string_with_format(row, 0, order.origin.to_string(), to_use)?;
+        worksheet.write_string(row, 1, order.employee.to_string())?;
+        worksheet.write_string(row, 2, order.client.to_string())?;
+        worksheet.write_string(row, 3, order.description.to_string())?;
+        worksheet.write_number_with_format(row, 4, order.count as f64, &right_align)?;
+        write_order_time(worksheet, row, 5, order.ready, &right_align)?;
+        write_order_time(worksheet, row, 6, order.leave, &right_align)?;
+        write_order_time(worksheet, row, 7, order.start, &right_align)?;
+        worksheet.write_string(row, 8, order.vehicle.to_string())?;
 
-                worksheet.write_string_with_format(index, 0, order.origin.to_string(), to_use)?;
-                worksheet.write_string(index, 1, order.employee.to_string())?;
-                worksheet.write_string(index, 2, order.client.to_string())?;
-                worksheet.write_string(index, 3, order.description.to_string())?;
-                worksheet.write_number_with_format(index, 4, order.count as f64, &right_align)?;
-                write_order_time(worksheet, index, 5, order.ready, &right_align)?;
-                write_order_time(worksheet, index, 6, order.leave, &right_align)?;
-                write_order_time(worksheet, index, 7, order.start, &right_align)?;
-                worksheet.write_string(index, 8, order.vehicle.to_string())?;
-
-                index += 1;
-                daily_orders += 1;
-            }
-        }
+        row += 1;
+        daily_orders += 1;
     }
 
-    write_daily_count_sum(worksheet, index, &mut daily_orders, &mut sum_rows, &bold)?;
-    write_final_row(worksheet, index, &sum_rows, orders.len() as u32)?;
+    write_daily_count_sum(worksheet, row, &mut daily_orders, &mut sum_rows, &bold)?;
+    write_final_row(worksheet, row, &sum_rows, orders.len() as u32, &last_sum)?;
 
     workbook.save("./formatted.xlsx")?;
     Ok(())

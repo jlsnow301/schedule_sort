@@ -1,8 +1,16 @@
 use anyhow::Result;
 use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Weekday};
-use rust_xlsxwriter::{Color, Format, worksheet::Worksheet};
+use rust_xlsxwriter::{worksheet::Worksheet, Color, Format, FormatAlign};
 
-pub fn write_date_row(worksheet: &mut Worksheet, index: u32, current_date: f64) -> Result<()> {
+const PASTEL_RED: u32 = 0xFFB3BA;
+const PASTEL_ORANGE: u32 = 0xFFDFBA;
+const PASTEL_YELLOW: u32 = 0xFFFFBA;
+const PASTEL_GREEN: u32 = 0xBAFFC9;
+const PASTEL_BLUE: u32 = 0xBAE1FF;
+const PASTEL_PURPLE: u32 = 0xC9BAFF;
+const PASTEL_PINK: u32 = 0xFFBAF3;
+
+pub fn write_date_row(worksheet: &mut Worksheet, row: u32, current_date: f64) -> Result<()> {
     let start = NaiveDate::from_ymd_opt(1899, 12, 30).unwrap();
     let days_to_add = current_date as i64;
     let date = start
@@ -14,30 +22,31 @@ pub fn write_date_row(worksheet: &mut Worksheet, index: u32, current_date: f64) 
     let date_string = format!("{}, {}", day_of_week, formatted_date);
 
     let bg_color = match date.weekday() {
-        Weekday::Mon => Color::RGB(0xFFB3BA),
-        Weekday::Tue => Color::RGB(0xFFDFBA),
-        Weekday::Wed => Color::RGB(0xFFFFBA),
-        Weekday::Thu => Color::RGB(0xBAFFC9),
-        Weekday::Fri => Color::RGB(0xBAE1FF),
-        Weekday::Sat => Color::RGB(0xC9BAFF),
-        Weekday::Sun => Color::RGB(0xFFBAF3),
+        Weekday::Mon => Color::RGB(PASTEL_RED),
+        Weekday::Tue => Color::RGB(PASTEL_ORANGE),
+        Weekday::Wed => Color::RGB(PASTEL_YELLOW),
+        Weekday::Thu => Color::RGB(PASTEL_GREEN),
+        Weekday::Fri => Color::RGB(PASTEL_BLUE),
+        Weekday::Sat => Color::RGB(PASTEL_PURPLE),
+        Weekday::Sun => Color::RGB(PASTEL_PINK),
     };
 
-    let format = rust_xlsxwriter::Format::new().set_background_color(bg_color);
+    let format = Format::new().set_background_color(bg_color);
 
-    worksheet.merge_range(index, 0, index, 8, date_string.as_str(), &format)?;
+    worksheet.merge_range(row, 0, row, 8, date_string.as_str(), &format)?;
 
     Ok(())
 }
 
 pub fn write_order_time(
     worksheet: &mut Worksheet,
-    index: u32,
+    row: u32,
     col: u16,
     excel_dt: f64,
     format: &Format,
 ) -> Result<()> {
     if excel_dt == 0.0 {
+        worksheet.write_string_with_format(row, col, "", format)?;
         return Ok(());
     }
 
@@ -53,52 +62,39 @@ pub fn write_order_time(
         .format("%I:%M %p")
         .to_string();
 
-    worksheet.write_string_with_format(index, col, date, format)?;
+    worksheet.write_string_with_format(row, col, date, format)?;
 
     Ok(())
 }
 
-pub fn write_header_row(worksheet: &mut Worksheet) -> Result<()> {
-    let headers = Format::new().set_bold();
-
+pub fn write_header_row(worksheet: &mut Worksheet, row: u32, format: &Format) -> Result<()> {
+    worksheet.set_row_format(row, format)?;
+    worksheet.write_row(row, 0, vec!["Origin", "Employee", "Client", "Description"])?;
     worksheet.write_row_with_format(
-        0,
-        0,
-        vec![
-            "Origin",
-            "Employee",
-            "Client",
-            "Description",
-            "Count",
-            "Ready",
-            "Leave",
-            "Start",
-            "Vehicle",
-        ],
-        &headers,
+        row,
+        4,
+        vec!["Count", "Ready", "Leave", "Start"],
+        &format.clone().set_align(FormatAlign::Right),
     )?;
+    worksheet.write_string(row, 8, "Vehicle")?;
 
     Ok(())
 }
 
 pub fn write_daily_count_sum(
     worksheet: &mut Worksheet,
-    index: u32,
+    row: u32,
     daily_orders: &mut u32,
     sum_rows: &mut Vec<u32>,
     format: &Format,
 ) -> Result<()> {
     // Starts at 1 :)
-    let excel_index = index + 1;
+    let excel_index = row + 1;
     let first_order = excel_index - *daily_orders;
 
-    worksheet.write_string_with_format(index, 1, format!("{} orders", *daily_orders), format)?;
-    worksheet.write_formula_with_format(
-        index,
-        4,
-        format!("=SUM(E{}:E{})", first_order, index).as_str(),
-        format,
-    )?;
+    worksheet.set_row_format(row, format)?;
+    worksheet.write_string(row, 1, format!("{} orders", *daily_orders))?;
+    worksheet.write_formula(row, 4, format!("=SUM(E{}:E{})", first_order, row).as_str())?;
 
     sum_rows.push(excel_index);
     *daily_orders = 0;
@@ -108,9 +104,10 @@ pub fn write_daily_count_sum(
 
 pub fn write_final_row(
     worksheet: &mut Worksheet,
-    index: u32,
+    row: u32,
     sum_rows: &[u32],
     total_orders: u32,
+    format: &Format,
 ) -> Result<()> {
     let sums = sum_rows
         .iter()
@@ -118,17 +115,14 @@ pub fn write_final_row(
         .collect::<Vec<String>>()
         .join(",");
 
-    let last = index + 2;
+    let last = row + 2;
     let mut vec_string = vec![String::new(); 9];
     vec_string[0] = "Totals".to_string();
     vec_string[1] = format!("{} orders", total_orders);
 
-    let last_sum = Format::new()
-        .set_bold()
-        .set_background_color(Color::RGB(0xF5F5F5));
-
-    worksheet.write_row_with_format(last, 0, vec_string, &last_sum)?;
-    worksheet.write_formula_with_format(last, 4, format!("=SUM({})", sums).as_str(), &last_sum)?;
+    worksheet.set_row_format(last, format)?;
+    worksheet.write_row(last, 0, vec_string)?;
+    worksheet.write_formula(last, 4, format!("=SUM({})", sums).as_str())?;
 
     Ok(())
 }
