@@ -50,11 +50,11 @@ pub fn deserialize_excel(file_path: &str) -> Result<Vec<Order>> {
 
     let mut orders = Vec::new();
 
-    let length = worksheet.height();
+    let total = worksheet.height() - 1;
     for (index, row) in worksheet.rows().enumerate() {
         match index {
             0 => continue,
-            i if i >= length - 2 => break,
+            i if i >= total => break,
             _ => {
                 let order = Order {
                     date: deserialize_date_cell(row.first(), 45658.0),
@@ -66,6 +66,7 @@ pub fn deserialize_excel(file_path: &str) -> Result<Vec<Order>> {
                         .get(5)
                         .map(|x| match x {
                             Data::String(x) => x.parse::<i64>().unwrap_or(0),
+                            Data::Float(x) => *x as i64,
                             Data::Int(x) => *x,
                             _ => 0,
                         })

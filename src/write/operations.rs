@@ -32,10 +32,10 @@ pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
 
     // Create themes
     let standard = Format::new()
+        .set_bold()
         .set_border(FormatBorder::Thin)
         .set_border_color(Color::Gray);
 
-    let bold = standard.clone().set_bold();
     let eastlake = standard.clone().set_font_color(Color::RGB(RUST));
     let last_sum = Format::new()
         .set_bold()
@@ -53,7 +53,7 @@ pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
         // Writes daily counts followed by a new date
         if current_date != order.date {
             current_date = order.date;
-            write_daily_count_sum(worksheet, row, &mut daily_orders, &mut sum_rows, &bold)?;
+            write_daily_count_sum(worksheet, row, &mut daily_orders, &mut sum_rows, &standard)?;
             // We want a blank row after the counts
             write_date_row(worksheet, row + 2, order.date)?;
             write_header_row(worksheet, row + 3, &header)?;
@@ -63,7 +63,7 @@ pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
         let to_use = match order.origin.as_str() {
             "Fremont" => &fremont,
             "Eastlake" => &eastlake,
-            _ => &bold,
+            _ => &standard,
         };
 
         worksheet.set_row_format(row, &standard)?;
@@ -81,9 +81,9 @@ pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
         daily_orders += 1;
     }
 
-    write_daily_count_sum(worksheet, row, &mut daily_orders, &mut sum_rows, &bold)?;
+    write_daily_count_sum(worksheet, row, &mut daily_orders, &mut sum_rows, &standard)?;
     write_final_row(worksheet, row, &sum_rows, orders.len() as u32, &last_sum)?;
 
-    workbook.save("./formatted.xlsx")?;
+    workbook.save("./formatted_schedule.xlsx")?;
     Ok(())
 }

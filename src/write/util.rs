@@ -31,7 +31,7 @@ pub fn write_date_row(worksheet: &mut Worksheet, row: u32, current_date: f64) ->
         Weekday::Sun => Color::RGB(PASTEL_PINK),
     };
 
-    let format = Format::new().set_background_color(bg_color);
+    let format = Format::new().set_bold().set_background_color(bg_color);
 
     worksheet.merge_range(row, 0, row, 8, date_string.as_str(), &format)?;
 
