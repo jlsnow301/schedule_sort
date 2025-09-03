@@ -1,6 +1,6 @@
 use anyhow::Result;
-use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Weekday};
-use rust_xlsxwriter::{worksheet::Worksheet, Color, Format, FormatAlign};
+use chrono::{Datelike, Duration, NaiveDate, Weekday};
+use rust_xlsxwriter::{worksheet::Worksheet, Color, ExcelDateTime, Format, FormatAlign};
 
 const PASTEL_RED: u32 = 0xFFB3BA;
 const PASTEL_ORANGE: u32 = 0xFFDFBA;
@@ -50,19 +50,8 @@ pub fn write_order_time(
         return Ok(());
     }
 
-    let time_fraction = excel_dt - excel_dt.floor();
-    let total_seconds = (time_fraction * 86400.0).round() as u32;
-
-    let hours = total_seconds / 3600;
-    let minutes = (total_seconds % 3600) / 60;
-    let seconds = total_seconds % 60;
-
-    let date = NaiveTime::from_hms_opt(hours, minutes, seconds)
-        .unwrap()
-        .format("%I:%M %p")
-        .to_string();
-
-    worksheet.write_string_with_format(row, col, date, format)?;
+    let time = ExcelDateTime::from_serial_datetime(excel_dt)?;
+    worksheet.write_datetime_with_format(row, col, time, format)?;
 
     Ok(())
 }

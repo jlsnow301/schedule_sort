@@ -10,7 +10,7 @@ use rust_xlsxwriter::{workbook::Workbook, Color, Format, FormatAlign, FormatBord
 const LT_GRAY: u32 = 0xE5E7EB;
 const RUST: u32 = 0xBE5014; // crab
 
-pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
+pub fn write_new_xlsx(orders: Vec<Order>, out_file: &str) -> Result<()> {
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
 
@@ -43,6 +43,7 @@ pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
     let fremont = standard.clone().set_font_color(Color::Green);
     let header = standard.clone().set_background_color(Color::RGB(LT_GRAY));
     let right_align = standard.clone().set_align(FormatAlign::Right);
+    let time = standard.clone().set_num_format("hh:mm AM/PM");
 
     write_date_row(worksheet, row, current_date)?;
     row += 1;
@@ -71,10 +72,10 @@ pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
         worksheet.write_string(row, 1, order.employee.to_string())?;
         worksheet.write_string(row, 2, order.client.to_string())?;
         worksheet.write_string(row, 3, order.description.to_string())?;
-        worksheet.write_number_with_format(row, 4, order.count as f64, &right_align)?;
-        write_order_time(worksheet, row, 5, order.ready, &right_align)?;
-        write_order_time(worksheet, row, 6, order.leave, &right_align)?;
-        write_order_time(worksheet, row, 7, order.start, &right_align)?;
+        worksheet.write_number_with_format(row, 4, order.count, &right_align)?;
+        write_order_time(worksheet, row, 5, order.ready, &time)?;
+        write_order_time(worksheet, row, 6, order.leave, &time)?;
+        write_order_time(worksheet, row, 7, order.start, &time)?;
         worksheet.write_string(row, 8, order.vehicle.to_string())?;
 
         row += 1;
@@ -84,6 +85,6 @@ pub fn write_new_xlsx(orders: Vec<Order>) -> Result<()> {
     write_daily_count_sum(worksheet, row, &mut daily_orders, &mut sum_rows, &standard)?;
     write_final_row(worksheet, row, &sum_rows, orders.len() as u32, &last_sum)?;
 
-    workbook.save("./formatted_schedule.xlsx")?;
+    workbook.save(out_file)?;
     Ok(())
 }

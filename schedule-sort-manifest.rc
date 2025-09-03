@@ -17,12 +17,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "Sentient Dust LLC"
             VALUE "FileDescription",  "https://github.com/jlsnow301/schedule_sort"
-            VALUE "FileVersion",      "1.2.0.0"
+            VALUE "FileVersion",      "1.2.1.0"
             VALUE "InternalName",     "schedule_sort"
             VALUE "LegalCopyright",   "Copyright 2025 Sentient Dust"
             VALUE "OriginalFilename", "schedule_sort.exe"
             VALUE "ProductName",      "Organizador del Pecado"
-            VALUE "ProductVersion",   "1.2.0.0"
+            VALUE "ProductVersion",   "1.2.1.0"
         END
     END
     BLOCK "VarFileInfo"
